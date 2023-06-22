@@ -1,9 +1,5 @@
 use serde_json::json;
 use tg_flows::{listen_to_update, Telegram, Update, UpdateKind};
-use openai_flows::{
-    chat::{ChatModel, ChatOptions},
-    OpenAIFlows,
-};
 use store_flows::{get, set};
 use flowsnet_platform_sdk::logger;
 
@@ -28,15 +24,6 @@ async fn handler(tele: Telegram, placeholder_text: &str, system_prompt: &str, he
     if let UpdateKind::Message(msg) = update.kind {
         let chat_id = msg.chat.id;
         log::info!("Received message from {}", chat_id);
-
-        let mut openai = OpenAIFlows::new();
-        openai.set_retry_times(3);
-        let mut co = ChatOptions {
-            // model: ChatModel::GPT4,
-            model: ChatModel::GPT35Turbo,
-            restart: false,
-            system_prompt: Some(system_prompt),
-        };
 
         let text = msg.text().unwrap_or("");
         if text.eq_ignore_ascii_case("/help") {
@@ -64,18 +51,9 @@ async fn handler(tele: Telegram, placeholder_text: &str, system_prompt: &str, he
             if restart {
                 log::info!("Detected restart = true");
                 set(&chat_id.to_string(), json!(false), None);
-                co.restart = true;
             }
 
-            match openai.chat_completion(&chat_id.to_string(), &text, &co).await {
-                Ok(r) => {
-                    _ = tele.edit_message_text(chat_id, placeholder.id, r.choice);
-                }
-                Err(e) => {
-                    _ = tele.edit_message_text(chat_id, placeholder.id, "Sorry, an error has occured. Please try again later!");
-                    log::error!("OpenAI returns error: {}", e);
-                }
-            }
+            tele.edit_message_text(chat_id, placeholder.id, "Sorry, an error has occured. Please try again later!");
         }
     }
 }
